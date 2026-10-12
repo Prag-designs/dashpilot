@@ -2,7 +2,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const SCHEMA_PATH = path.join(__dirname, "..", "docs", "dashapp-manifest.schema.json");
+const SCHEMA_PATH = path.join(__dirname, "..", "dash-apps", "manifest.schema.json");
 const APPS_DIR = path.join(__dirname, "..", "dash-apps");
 
 const ROOT_KEYS = new Set(["$schema", "manifestVersion", "id", "settings"]);
