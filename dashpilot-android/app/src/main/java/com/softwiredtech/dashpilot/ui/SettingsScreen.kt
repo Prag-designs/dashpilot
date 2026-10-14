@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -89,7 +92,7 @@ import com.softwiredtech.dashpilot.datamodel.dash.ManifestDisplaySetting
 import com.softwiredtech.dashpilot.datamodel.dash.PREF_ALWAYS_ON_BLIND_SPOT_MONITOR
 import com.softwiredtech.dashpilot.datamodel.dash.PREF_DARK_MODE
 import com.softwiredtech.dashpilot.datamodel.dash.PREF_DARK_MODE_BACKGROUND_GRAY
-import com.softwiredtech.dashpilot.datamodel.dash.PREF_EXTRA_VEHICLE_BUS
+import com.softwiredtech.dashpilot.datamodel.dash.CarModel
 import com.softwiredtech.dashpilot.datamodel.dash.PREF_RENDER_QUALITY
 import com.softwiredtech.dashpilot.datamodel.dash.PREF_SHOW_CAR_BATTERY
 import com.softwiredtech.dashpilot.datamodel.dash.PREF_SHOW_ODOMETER
@@ -98,7 +101,6 @@ import com.softwiredtech.dashpilot.datamodel.dash.PREF_USE_IMPERIAL
 import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_ALWAYS_ON_BLIND_SPOT_MONITOR
 import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_DARK_MODE
 import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_DARK_MODE_BACKGROUND_GRAY
-import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_EXTRA_VEHICLE_BUS
 import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_RENDER_QUALITY
 import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_SHOW_CAR_BATTERY
 import com.softwiredtech.dashpilot.datamodel.dash.DEFAULT_SHOW_ODOMETER
@@ -137,14 +139,12 @@ fun SettingsScreen(
     onRemoveTesla: () -> Boolean = { false },
     onEnrollTesla: () -> Unit = {},
     onReplayOnboarding: () -> Unit = {},
-    onThemeClick: () -> Unit = {}
+    onThemeClick: () -> Unit = {},
+    carModel: CarModel = CarModel.TESLA_LEGACY,
+    onCarModelChanged: (CarModel) -> Unit = {}
 ) {
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences(DASH_PREFS_NAME, Context.MODE_PRIVATE) }
-
-    val extraBusState = remember {
-        mutableStateOf(BuildConfig.DEBUG && sharedPrefs.getBoolean(PREF_EXTRA_VEHICLE_BUS, DEFAULT_EXTRA_VEHICLE_BUS))
-    }
 
     val showPhoneBatteryState = remember {
         mutableStateOf(sharedPrefs.getBoolean(PREF_SHOW_PHONE_BATTERY, DEFAULT_SHOW_PHONE_BATTERY))
@@ -321,19 +321,15 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (BuildConfig.DEBUG) {
-                Text(stringResource(R.string.settings_section_configuration), color = DarkColors.TextMuted, fontSize = 16.sp)
-
-                SettingsToggle(stringResource(R.string.settings_toggle_extra_vehicle_bus), extraBusState.value) { enabled ->
-                    extraBusState.value = enabled
-                    sharedPrefs.edit { putBoolean(PREF_EXTRA_VEHICLE_BUS, enabled) }
-                }
-            }
+            SectionHeader(stringResource(R.string.settings_section_car))
+            Spacer(modifier = Modifier.height(8.dp))
+            CarModelSelector(carModel, onCarModelChanged)
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(stringResource(R.string.settings_section_display), color = DarkColors.TextMuted, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (extraBusState.value && showCarBatteryToggle) {
+            if (showCarBatteryToggle) {
                 val key = PREF_SHOW_CAR_BATTERY
                 val state = vehicleBusToggleStates.getValue(key)
                 SettingsToggle(stringResource(R.string.settings_toggle_show_car_battery), state.value) { enabled ->
@@ -342,7 +338,7 @@ fun SettingsScreen(
                     onDisplaySettingsChanged(buildDisplaySettings())
                 }
             }
-            if (extraBusState.value && showOdometerToggle) {
+            if (showOdometerToggle) {
                 val key = PREF_SHOW_ODOMETER
                 val state = vehicleBusToggleStates.getValue(key)
                 SettingsToggle(stringResource(R.string.settings_toggle_show_odometer), state.value) { enabled ->
@@ -503,6 +499,42 @@ private fun SectionHeader(title: String) {
         color = DarkColors.TextMuted,
         fontSize = 16.sp
     )
+}
+
+@Composable
+private fun CarModelSelector(selected: CarModel, onSelected: (CarModel) -> Unit) {
+    val options = listOf(
+        Triple(CarModel.TESLA_LEGACY, R.string.settings_car_model_legacy, R.string.settings_car_model_legacy_years),
+        Triple(CarModel.TESLA_JUNIPER, R.string.settings_car_model_juniper, R.string.settings_car_model_juniper_years),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { (model, nameRes, yearsRes) ->
+            val isSelected = model == selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(DarkColors.Surface)
+                    .border(1.dp, if (isSelected) AccentColor else Color.Transparent, RoundedCornerShape(12.dp))
+                    .clickable { onSelected(model) }
+                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = stringResource(nameRes), color = Color.White, fontSize = 16.sp)
+                    Text(text = stringResource(yearsRes), color = DarkColors.TextMuted, fontSize = 13.sp)
+                }
+                RadioButton(
+                    selected = isSelected,
+                    onClick = { onSelected(model) },
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = AccentColor,
+                        unselectedColor = DarkColors.TextMuted
+                    )
+                )
+            }
+        }
+    }
 }
 
 @Composable

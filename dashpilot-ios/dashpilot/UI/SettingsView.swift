@@ -13,7 +13,7 @@ struct SettingsView: View {
     /// 0 = General, 1 = DashKit (mirrors the Android settings tabs).
     @State private var selectedTab = 0
 
-    @AppStorage(DisplaySettings.keyExtraVehicleBus)           private var extraVehicleBus = false
+    @AppStorage(DisplaySettings.keyCarModel)                  private var carModelRaw = DisplaySettings.carModel.rawValue
     @AppStorage(DisplaySettings.keyShowCarBattery)            private var showCarBattery = true
     @AppStorage(DisplaySettings.keyShowOdometer)              private var showOdometer = true
     @AppStorage(DisplaySettings.keyUseImperial)               private var useImperial = false
@@ -63,9 +63,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         if selectedTab == 0 {
                             dashboardSection
-                            #if DEBUG
-                            configurationSection
-                            #endif
+                            carSection
                             displaySection
                             if showVisualizerSettings {
                                 visualizerSection
@@ -197,23 +195,50 @@ struct SettingsView: View {
             .clipped()
     }
 
-    private var extraVehicleBusEnabled: Bool {
-        #if DEBUG
-        return extraVehicleBus
-        #else
-        return false
-        #endif
-    }
+    // MARK: - Car Section
 
-    // MARK: - Configuration Section
-
-    private var configurationSection: some View {
+    private var carSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Configuration")
-            SettingsToggleRow(label: "Extra Vehicle Bus", isOn: $extraVehicleBus)
+            sectionTitle("Car")
+            carModelOption(.teslaLegacy, name: "Model 3 / Model Y", years: "Model years 2019–2024")
+            carModelOption(.teslaJuniper, name: "Model Y Juniper", years: "Model year 2025 and newer")
             Spacer().frame(height: 8)
         }
         .padding(.horizontal, 24)
+        .onChange(of: carModelRaw) { _, _ in
+            connectionVM.carModelChanged()
+        }
+    }
+
+    private func carModelOption(_ model: CarModel, name: LocalizedStringKey, years: LocalizedStringKey) -> some View {
+        let selected = carModelRaw == model.rawValue
+        return Button {
+            carModelRaw = model.rawValue
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .foregroundColor(.white)
+                        .font(.system(size: 16))
+                    Text(years)
+                        .foregroundColor(mutedText)
+                        .font(.system(size: 13))
+                }
+                Spacer()
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(selected ? dashGreen : mutedText)
+                    .font(.system(size: 20))
+            }
+            .padding(12)
+            .background(Color(white: 0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(selected ? dashGreen : Color.clear, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Display Section
@@ -221,10 +246,10 @@ struct SettingsView: View {
     private var displaySection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Display")
-            if extraVehicleBusEnabled && showCarBatteryToggle {
+            if showCarBatteryToggle {
                 SettingsToggleRow(label: "Show Car Battery", isOn: $showCarBattery)
             }
-            if extraVehicleBusEnabled && showOdometerToggle {
+            if showOdometerToggle {
                 SettingsToggleRow(label: "Show Odometer", isOn: $showOdometer)
             }
             if showUseImperialToggle {
