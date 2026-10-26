@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ import app.rive.RiveFileSource
 import app.rive.ViewModelSource
 import app.rive.rememberDeferredRiveWorker
 import app.rive.rememberRiveFile
+import app.rive.rememberRiveWorkerOrNull
 import app.rive.rememberViewModelInstance
 import app.rive.runtime.kotlin.core.ViewModel.PropertyDataType
 import com.softwiredtech.dashpilot.datamodel.dash.DashState
@@ -37,7 +39,8 @@ fun RiveDashView(
     assetName: String,
     dashStateFlow: Flow<DashState>,
     onError: ((message: String) -> Unit),
-    fileUri: String? = null
+    fileUri: String? = null,
+    useGpuCanvas: Boolean = false
 ) {
     val systemDarkMode = isSystemInDarkTheme()
     BoxWithConstraints(
@@ -48,8 +51,13 @@ fun RiveDashView(
         val fit = Fit.Layout(constraints.maxHeight / ARTBOARD_HEIGHT)
         val context = LocalContext.current
         // GPU Canvas content (WGSL shaders over a script-drawn canvas) only renders on a deferred
-        // worker. Dashboards that do not use GPU Canvas simply do not exercise it.
-        val riveWorker = rememberDeferredRiveWorker()
+        // worker. It is opt-in from Developer settings; every other case keeps the standard worker.
+        val errorState = remember { mutableStateOf<Throwable?>(null) }
+        val riveWorker = if (useGpuCanvas) rememberDeferredRiveWorker() else rememberRiveWorkerOrNull(errorState)
+        if (riveWorker == null) {
+            onError(errorState.value.toString())
+            return@BoxWithConstraints
+        }
 
         val riveSource = remember(assetName, fileUri) {
             if (!fileUri.isNullOrEmpty()) {
